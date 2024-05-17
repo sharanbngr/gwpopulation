@@ -3,7 +3,7 @@ Implemented spin models
 """
 import numpy as xp
 
-from ..utils import beta_dist, truncnorm, unnormalized_2d_gaussian
+from ..utils import beta_dist, truncnorm, unnormalized_2d_gaussian, skewnorm, trunc_eps_skewnorm
 from .interped import InterpolatedNoBaseModelIdentical
 
 
@@ -138,7 +138,7 @@ def independent_spin_orientation_gaussian_isotropic(dataset, xi_spin, sigma_1, s
     return prior
 
 
-def gaussian_chi_eff(dataset, mu_chi_eff, sigma_chi_eff):
+def gaussian_chi_eff(dataset, mu_chi_eff, sigma_chi_eff, **kwargs):
     r"""
     A Gaussian in chi effective distribution
 
@@ -166,6 +166,46 @@ def gaussian_chi_eff(dataset, mu_chi_eff, sigma_chi_eff):
         dataset["chi_eff"], mu=mu_chi_eff, sigma=sigma_chi_eff, low=-1, high=1
     )
 
+
+
+def skewnorm_chi_eff(dataset, mu_chi_eff, sigma_chi_eff, eta_chi_eff):
+
+    pdf = skewnorm(dataset["chi_eff"], mu=mu_chi_eff, sigma=sigma_chi_eff, eta=eta_chi_eff)
+
+    chi_arr = xp.array([0.005 * i for i in range(-200, 201, 1)])
+    norm = 0.005 * xp.sum(skewnorm(chi_arr, mu=mu_chi_eff, sigma=sigma_chi_eff, eta=eta_chi_eff))
+
+    return pdf/norm
+
+
+
+def eps_skewnorm_chi_eff(dataset, mu_chi_eff, sigma_chi_eff, eps_chi_eff):
+    r"""
+    A Gaussian in chi effective distribution
+
+    See https://arxiv.org/abs/2001.06051, https://arxiv.org/abs/2010.14533
+
+    .. math::
+        p(\chi_{\text{eff}}) = \mathcal{N}(\chi_{\text{eff}}; \mu=\mu_\chi, \sigma=\sigma_\chi, x_\min=-1, m_\max=1)
+
+    Where :math:`\mathcal{N}` is a truncated Gaussian.
+
+    Parameters
+    ----------
+    dataset: dict
+        Input data, must contain `chi_eff` (:math:`\chi_{\text{eff}}`)
+    mu_chi_eff: float
+        Mean of the distribution (:math:`\mu_\chi`)
+    sigma_chi_eff: float
+        Standard deviation of the distribution (:math:`\sigma_\chi`)
+
+    Returns
+    -------
+    array-like: The probability
+    """
+    return trunc_eps_skewnorm(
+        dataset["chi_eff"], mu=mu_chi_eff, sigma=sigma_chi_eff, epsilon=eps_chi_eff, low=-1, high=1
+    )
 
 def gaussian_chi_p(dataset, mu_chi_p, sigma_chi_p):
     r"""
@@ -281,7 +321,7 @@ class GaussianChiEffChiP(object):
 
 
 class SplineSpinMagnitudeIdentical(InterpolatedNoBaseModelIdentical):
-    def __init__(self, minimum=0, maximum=1, nodes=5, kind="cubic"):
+    def __init__(self, minimum=0, maximum=1, nodes=5, kind="cubic", regularize=False):
 
         super(SplineSpinMagnitudeIdentical, self).__init__(
             parameters=["a_1", "a_2"],
@@ -289,11 +329,12 @@ class SplineSpinMagnitudeIdentical(InterpolatedNoBaseModelIdentical):
             maximum=maximum,
             nodes=nodes,
             kind=kind,
+            regularize=regularize,
         )
 
 
 class SplineSpinTiltIdentical(InterpolatedNoBaseModelIdentical):
-    def __init__(self, minimum=-1, maximum=1, nodes=5, kind="cubic"):
+    def __init__(self, minimum=-1, maximum=1, nodes=5, kind="cubic", regularize=False):
 
         super(SplineSpinTiltIdentical, self).__init__(
             parameters=["cos_tilt_1", "cos_tilt_2"],
@@ -301,4 +342,5 @@ class SplineSpinTiltIdentical(InterpolatedNoBaseModelIdentical):
             maximum=maximum,
             nodes=nodes,
             kind=kind,
+            regularize=regularize,
         )
