@@ -344,3 +344,56 @@ class SplineSpinTiltIdentical(InterpolatedNoBaseModelIdentical):
             kind=kind,
             regularize=regularize,
         )
+
+
+
+class EffSpinAnalysis():
+
+    def __init__(self):
+
+        self.make_mesh()
+
+
+    def make_mesh(self):
+
+        chi_eff_arr = np.arange(-1, 1, 0.005)
+        chi_p_arr = np.arange(0, 1, 0.005)
+
+        self.chi_eff_mesh, self.chi_p_mesh = np.meshgrid(chi_eff_arr, chi_p_arr)
+
+        self.del_chi_eff = chi_eff_arr[1] - chi_eff_arr[0]
+        self.del_chi_p = chi_p_arr[1] - chi_p_arr[0]
+
+
+        self.chi_eff_dict = {'chi_eff':self.chi_eff_mesh}
+        self.chi_p_dict = {'chi_p':self.chi_p_mesh}
+
+
+
+
+    def validity_mask(self, q):
+
+        chi_p_max1 = 1
+
+        chi_p_max2 = np.sqrt(1 - ((1 + q)*np.abs(self.chi_eff_mesh) - q)**2)
+
+        bifurcation_mask = np.abs(self.chi_eff_mesh) <= q/(1+q)
+
+        chi_p_max = chi_p_max1 * bifurcation_mask + np.logical_not(bifurcation_mask) * chi_p_max2
+
+        mask = self.chi_p_mesh <= chi_p_max
+
+        return mask
+
+    def calc_norm_for_gaussian(self, q, mu_eff, sigma_eff, sigma_p):
+
+        mask = self.validity_mask(q)
+
+        p_chi_eff = gaussian_chi_eff(self.chi_eff_dict, mu_chi_eff=mu_eff, sigma_chi_eff=sigma_eff)
+        p_chi_p = gaussian_chi_p(self.chi_p_dict, mu_chi_p=0, sigma_chi_p=sigma_p)
+
+        norm = np.trapz(p_chi_eff * p_chi_p * mask , dx = self.del_chi_p, axis=0)
+        norm = np.trapz(norm, dx=self. del_chi_eff)
+
+        return norm
+
